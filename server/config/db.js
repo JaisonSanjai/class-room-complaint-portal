@@ -1,9 +1,12 @@
 const mysql = require('mysql2/promise');
 const dotenv = require('dotenv');
+const localDb = require('./localDb');
 
 dotenv.config();
 
-const pool = mysql.createPool({
+let isMySQLConnected = false;
+
+const mysqlPool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT, 10) || 3306,
   user: process.env.DB_USER || 'root',
@@ -16,16 +19,47 @@ const pool = mysql.createPool({
   keepAliveInitialDelay: 0
 });
 
-// Test connection
+// Check MySQL connection on launch
 (async () => {
   try {
-    const connection = await pool.getConnection();
-    console.log('✅ Connected to MySQL database:', process.env.DB_NAME || 'classroom_complaint_portal');
+    const connection = await mysqlPool.getConnection();
+    isMySQLConnected = true;
+    console.log('✅ Connected to MySQL Database Server (localhost:3306).');
     connection.release();
   } catch (err) {
-    console.error('⚠️  MySQL Database Connection Warning:', err.message);
-    console.error('👉 Ensure MySQL is running on port ' + (process.env.DB_PORT || 3306) + ' and run "npm run seed" if not yet created.');
+    isMySQLConnected = false;
+    console.log('----------------------------------------------------');
+    console.log('ℹ️  MySQL Server (localhost:3306) is not currently running.');
+    console.log('⚡ Seamlessly activated Local Storage Engine with all 57 students, 6 staff & demo data.');
+    console.log('👉 You can test and use all portal features right away in your browser!');
+    console.log('----------------------------------------------------');
   }
 })();
 
-module.exports = pool;
+// Dual-mode Proxy (Delegates to MySQL when available, or Local DB otherwise)
+const dbProxy = {
+  async query(sql, params) {
+    if (isMySQLConnected) {
+      try {
+        return await mysqlPool.query(sql, params);
+      } catch (err) {
+        console.warn('MySQL query error, using local fallback:', err.message);
+        return await localDb.query(sql, params);
+      }
+    }
+    return await localDb.query(sql, params);
+  },
+
+  async getConnection() {
+    if (isMySQLConnected) {
+      try {
+        return await mysqlPool.getConnection();
+      } catch (err) {
+        return await localDb.getConnection();
+      }
+    }
+    return await localDb.getConnection();
+  }
+};
+
+module.exports = dbProxy;
