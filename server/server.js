@@ -47,10 +47,14 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`====================================================`);
-  console.log(`🚀 Classroom Complaint Portal API running on port ${PORT}`);
-  console.log(`🌐 Base URL: http://localhost:${PORT}/api`);
-  console.log(`====================================================`);
-});
+// Start Server (when not running in serverless environment)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`====================================================`);
+    console.log(`🚀 Classroom Complaint Portal API running on port ${PORT}`);
+    console.log(`🌐 Base URL: http://localhost:${PORT}/api`);
+    console.log(`====================================================`);
+  });
+}
+
+module.exports = app;
